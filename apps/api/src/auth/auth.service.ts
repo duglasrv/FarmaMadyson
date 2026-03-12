@@ -102,13 +102,13 @@ export class AuthService {
     const roles = user.userRoles.map((ur) => ur.role.name);
 
     // Check if user is admin with 2FA
-    const isAdmin = roles.some((r) =>
-      ['super_admin', 'admin', 'pharmacist', 'warehouse', 'sales'].includes(r),
-    );
-
-    if (isAdmin && user.twoFactorEnabled) {
-      return this.initiateTwoFactor(user.id, user.email);
-    }
+    // TODO: Re-enable 2FA once email service is configured
+    // const isAdmin = roles.some((r) =>
+    //   ['super_admin', 'admin', 'pharmacist', 'warehouse', 'sales'].includes(r),
+    // );
+    // if (isAdmin && user.twoFactorEnabled) {
+    //   return this.initiateTwoFactor(user.id, user.email);
+    // }
 
     // Update last login
     await this.prisma.user.update({

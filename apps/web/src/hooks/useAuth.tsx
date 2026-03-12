@@ -3,6 +3,17 @@
 import { useState, useEffect, useCallback, createContext, useContext, type ReactNode } from 'react';
 import { apiClient } from '@/lib/api-client';
 
+const ADMIN_ROLES = ['super_admin', 'admin', 'pharmacist', 'warehouse', 'sales'];
+
+function setSessionCookie(roles: string[]) {
+  const isAdmin = roles.some((r) => ADMIN_ROLES.includes(r));
+  document.cookie = `session_type=${isAdmin ? 'admin' : 'customer'};path=/;max-age=${60 * 60 * 24 * 7};SameSite=Lax`;
+}
+
+function clearSessionCookie() {
+  document.cookie = 'session_type=;path=/;max-age=0';
+}
+
 interface User {
   id: string;
   email: string;
@@ -19,8 +30,9 @@ interface AuthContextValue {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<{ requiresTwoFactor?: boolean; tempToken?: string }>;
-  verify2fa: (tempToken: string, code: string) => Promise<void>;
+  isAdmin: boolean;
+  login: (email: string, password: string) => Promise<{ requiresTwoFactor?: boolean; tempToken?: string; user?: User }>;
+  verify2fa: (tempToken: string, code: string) => Promise<{ user?: User }>;
   register: (data: { email: string; password: string; firstName: string; lastName: string; phone?: string }) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -41,9 +53,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       const { data } = await apiClient.get('/auth/me');
       setUser(data);
+      setSessionCookie(data.roles || []);
     } catch {
       setUser(null);
       localStorage.removeItem('accessToken');
+      clearSessionCookie();
     }
   }, []);
 
@@ -59,6 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     localStorage.setItem('accessToken', data.accessToken);
+    setSessionCookie(data.user?.roles || []);
 
     // Set user immediately from login response
     if (data.user) {
@@ -77,12 +92,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Then try to get full profile (has abilities etc.) — non-blocking
     refreshUser().catch(() => {});
-    return {};
+    return { user: data.user ? { ...data.user, roles: data.user.roles || [] } : undefined };
   }, [refreshUser]);
 
   const verify2fa = useCallback(async (tempToken: string, code: string) => {
     const { data } = await apiClient.post('/auth/verify-2fa', { tempToken, code });
     localStorage.setItem('accessToken', data.accessToken);
+    setSessionCookie(data.user?.roles || []);
     if (data.user) {
       setUser({
         id: data.user.id,
@@ -97,6 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     }
     refreshUser().catch(() => {});
+    return { user: data.user ? { ...data.user, roles: data.user.roles || [] } : undefined };
   }, [refreshUser]);
 
   const register = useCallback(async (registerData: { email: string; password: string; firstName: string; lastName: string; phone?: string }) => {
@@ -110,6 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Ignore logout errors
     }
     localStorage.removeItem('accessToken');
+    clearSessionCookie();
     setUser(null);
   }, []);
 
@@ -119,6 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         isLoading,
         isAuthenticated: !!user,
+        isAdmin: !!user && user.roles?.some((r) => ADMIN_ROLES.includes(r)),
         login,
         verify2fa,
         register,

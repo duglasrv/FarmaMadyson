@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, LogIn } from 'lucide-react';
@@ -8,6 +8,8 @@ import { useAuth } from '@/hooks/useAuth';
 
 export default function LoginPage() {
   const { login, verify2fa } = useAuth();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirect') || '/';
   const [email, setEmail] = useState('');
@@ -29,7 +31,9 @@ export default function LoginPage() {
         setNeeds2FA(true);
         setTempToken(result.tempToken || '');
       } else {
-        window.location.href = redirectTo;
+        const adminRoles = ['super_admin', 'admin', 'pharmacist', 'warehouse', 'sales'];
+        const isAdmin = result?.user?.roles?.some((r: string) => adminRoles.includes(r));
+        window.location.href = isAdmin ? '/admin' : redirectTo;
       }
     } catch (err: unknown) {
       const apiErr = err as { response?: { data?: { message?: string } } };
@@ -44,8 +48,10 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
     try {
-      await verify2fa(tempToken, twoFACode);
-      window.location.href = redirectTo;
+      const verifyResult = await verify2fa(tempToken, twoFACode);
+      const adminRoles = ['super_admin', 'admin', 'pharmacist', 'warehouse', 'sales'];
+      const isAdmin = verifyResult?.user?.roles?.some((r: string) => adminRoles.includes(r));
+      window.location.href = isAdmin ? '/admin' : redirectTo;
     } catch (err: unknown) {
       const apiErr = err as { response?: { data?: { message?: string } } };
       setError(apiErr.response?.data?.message || 'Código inválido.');
@@ -63,6 +69,13 @@ export default function LoginPage() {
         </p>
       </div>
 
+      {!mounted ? (
+        <div className="space-y-4 animate-pulse">
+          <div className="h-10 bg-mist rounded-lg" />
+          <div className="h-10 bg-mist rounded-lg" />
+          <div className="h-10 bg-mist rounded-lg" />
+        </div>
+      ) : (<>
       {error && (
         <div className="mb-4 p-3 bg-destructive/10 text-destructive text-sm rounded-lg">
           {error}
@@ -164,6 +177,7 @@ export default function LoginPage() {
           Regístrate aquí
         </Link>
       </p>
+      </>)}
     </div>
   );
 }

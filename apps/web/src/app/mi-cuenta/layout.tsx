@@ -26,13 +26,20 @@ const menuItems = [
 export default function MiCuentaLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, isAuthenticated, isLoading, logout } = useAuth();
+  const { user, isAuthenticated, isLoading, isAdmin, logout } = useAuth();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.push('/login?redirect=/mi-cuenta');
     }
   }, [isLoading, isAuthenticated, router]);
+
+  // Admin users should use the admin panel, not customer account
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && isAdmin) {
+      router.replace('/admin');
+    }
+  }, [isLoading, isAuthenticated, isAdmin, router]);
 
   const handleLogout = async () => {
     await logout();
