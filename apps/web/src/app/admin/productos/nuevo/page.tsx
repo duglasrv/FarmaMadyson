@@ -6,6 +6,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Plus, Trash2, Save } from 'lucide-react';
 import Link from 'next/link';
 import { apiClient as api } from '@/lib/api-client';
+import { MultiImageUpload } from '@/components/admin/ImageUpload';
 
 interface VariantForm {
   name: string;
@@ -57,6 +58,7 @@ export default function NewProductPage() {
     isControlled: false,
   });
 
+  const [images, setImages] = useState<string[]>([]);
   const [variants, setVariants] = useState<VariantForm[]>([{ ...emptyVariant }]);
 
   const { data: categories } = useQuery({
@@ -73,6 +75,7 @@ export default function NewProductPage() {
     mutationFn: async () => {
       const payload = {
         ...form,
+        images,
         variants: variants.map((v) => ({
           name: v.name,
           sku: v.sku,
@@ -205,6 +208,17 @@ export default function NewProductPage() {
               </label>
             </div>
           </div>
+        </Section>
+
+        {/* Images */}
+        <Section title="Imágenes del Producto">
+          <MultiImageUpload
+            values={images}
+            onChange={setImages}
+            folder="products"
+            label="Imágenes"
+            max={10}
+          />
         </Section>
 
         {/* Variants */}

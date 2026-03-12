@@ -139,6 +139,8 @@ export default function HomePage() {
   const [featured, setFeatured] = useState<any[]>([]);
   const [deals, setDeals] = useState<any[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [banners, setBanners] = useState<any[]>([]);
+  const [activeBanner, setActiveBanner] = useState(0);
   const [testimonialIndex, setTestimonialIndex] = useState(0);
   const addItem = useCartStore((s) => s.addItem);
 
@@ -150,6 +152,11 @@ export default function HomePage() {
   const catCarousel = useCategoryCarousel(categories.length);
 
   useEffect(() => {
+    apiClient
+      .get('/banners/public')
+      .then(({ data }) => setBanners(Array.isArray(data) ? data : []))
+      .catch(() => {});
+
     apiClient
       .get('/products', { params: { sortBy: 'popular', limit: 8 } })
       .then(({ data }) => {
@@ -175,6 +182,13 @@ export default function HomePage() {
       .then(({ data }) => setCategories(Array.isArray(data) ? data : (data.data || [])))
       .catch(() => {});
   }, []);
+
+  // Auto-rotate banners
+  useEffect(() => {
+    if (banners.length <= 1) return;
+    const timer = setInterval(() => setActiveBanner((i) => (i + 1) % banners.length), 5000);
+    return () => clearInterval(timer);
+  }, [banners.length]);
 
   return (
     <div>
@@ -266,6 +280,54 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ======== DYNAMIC BANNERS ======== */}
+      {banners.length > 0 && (
+        <section className="py-6 bg-white">
+          <div className="container mx-auto px-4">
+            <div className="relative rounded-2xl overflow-hidden shadow-brand-md">
+              {banners.map((b: any, i: number) => (
+                <div
+                  key={b.id}
+                  className={`transition-opacity duration-700 ${i === activeBanner ? 'opacity-100 relative' : 'opacity-0 absolute inset-0'}`}
+                >
+                  {b.linkUrl ? (
+                    <Link href={b.linkUrl} className="block">
+                      <img src={b.imageUrl} alt={b.title} className="w-full h-48 sm:h-64 lg:h-80 object-cover" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent flex flex-col justify-end p-6 sm:p-8">
+                        <h3 className="text-white text-xl sm:text-2xl font-bold">{b.title}</h3>
+                        {b.subtitle && <p className="text-white/80 text-sm mt-1">{b.subtitle}</p>}
+                      </div>
+                    </Link>
+                  ) : (
+                    <>
+                      <img src={b.imageUrl} alt={b.title} className="w-full h-48 sm:h-64 lg:h-80 object-cover" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent flex flex-col justify-end p-6 sm:p-8">
+                        <h3 className="text-white text-xl sm:text-2xl font-bold">{b.title}</h3>
+                        {b.subtitle && <p className="text-white/80 text-sm mt-1">{b.subtitle}</p>}
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+              {/* Dots */}
+              {banners.length > 1 && (
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+                  {banners.map((_: any, i: number) => (
+                    <button
+                      key={i}
+                      onClick={() => setActiveBanner(i)}
+                      className={`w-2 h-2 rounded-full transition-all ${
+                        i === activeBanner ? 'bg-white w-6' : 'bg-white/50'
+                      }`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ======== CATEGORIES — Carousel ======== */}
       {categories.length > 0 && (

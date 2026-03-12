@@ -21,14 +21,20 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { AuthGuard } from '@nestjs/passport';
 import { Public } from './decorators/public.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 
+import { ConfigService } from '@nestjs/config';
+
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+  ) {}
 
   // ============================================================
   // POST /auth/register
@@ -152,8 +158,8 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Solicitar restablecimiento de contraseña' })
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    await this.authService.forgotPassword(dto.email);
     // Always return success to prevent email enumeration
-    // TODO: Implement email sending in Phase 5
     return { message: 'Si el email existe, recibirás un enlace para restablecer tu contraseña.' };
   }
 
@@ -165,7 +171,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Restablecer contraseña con token' })
   async resetPassword(@Body() dto: ResetPasswordDto) {
-    // TODO: Implement in Phase 5 with email tokens
+    await this.authService.resetPassword(dto.token, dto.newPassword);
     return { message: 'Contraseña restablecida exitosamente.' };
   }
 
@@ -177,7 +183,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verificar email con token' })
   async verifyEmail(@Body() dto: VerifyEmailDto) {
-    // TODO: Implement in Phase 5
+    await this.authService.verifyEmail(dto.token);
     return { message: 'Email verificado exitosamente.' };
   }
 
@@ -213,6 +219,43 @@ export class AuthController {
 
     const { refreshToken: _, ...response } = result;
     return response;
+  }
+
+  // ============================================================
+  // GOOGLE OAuth
+  // ============================================================
+  @Public()
+  @Get('google')
+  @UseGuards(AuthGuard('google'))
+  @ApiOperation({ summary: 'Iniciar login con Google' })
+  googleAuth() {
+    // Guard redirects to Google
+  }
+
+  @Public()
+  @Get('google/callback')
+  @UseGuards(AuthGuard('google'))
+  @ApiOperation({ summary: 'Callback de Google OAuth' })
+  async googleCallback(
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const googleUser = req.user as {
+      googleId: string;
+      email: string;
+      firstName: string;
+      lastName: string;
+      avatarUrl?: string;
+    };
+    const result = await this.authService.googleLogin(googleUser);
+    this.setRefreshTokenCookie(res, result.refreshToken);
+
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
+    const { refreshToken: _, ...tokenData } = result;
+    // Redirect to frontend with token in URL fragment (not query param for security)
+    res.redirect(
+      `${frontendUrl}/auth/callback?token=${encodeURIComponent(tokenData.accessToken)}`,
+    );
   }
 
   // ============================================================

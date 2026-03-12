@@ -86,8 +86,9 @@ export class OrdersController {
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
     @Query('status') status?: string,
+    @Query('search') search?: string,
   ): Promise<any> {
-    return this.ordersService.findAll(page, limit, status);
+    return this.ordersService.findAll(page, limit, status, search);
   }
 
   @Get(':id')

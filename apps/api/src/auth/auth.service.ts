@@ -11,6 +11,7 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { EmailService } from '../email/email.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { VerifyTwoFactorDto } from './dto/verify-two-factor.dto';
@@ -25,6 +26,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly redis: RedisService,
+    private readonly emailService: EmailService,
   ) {}
 
   // ============================================================
@@ -102,13 +104,12 @@ export class AuthService {
     const roles = user.userRoles.map((ur) => ur.role.name);
 
     // Check if user is admin with 2FA
-    // TODO: Re-enable 2FA once email service is configured
-    // const isAdmin = roles.some((r) =>
-    //   ['super_admin', 'admin', 'pharmacist', 'warehouse', 'sales'].includes(r),
-    // );
-    // if (isAdmin && user.twoFactorEnabled) {
-    //   return this.initiateTwoFactor(user.id, user.email);
-    // }
+    const isAdmin = roles.some((r) =>
+      ['super_admin', 'admin', 'pharmacist', 'warehouse', 'sales'].includes(r),
+    );
+    if (isAdmin && user.twoFactorEnabled) {
+      return this.initiateTwoFactor(user.id, user.email);
+    }
 
     // Update last login
     await this.prisma.user.update({
@@ -151,9 +152,9 @@ export class AuthService {
       },
     );
 
-    // TODO: Send email with code (EmailJS/SendGrid) in Phase 5
-    // For dev: log the code
-    this.logger.warn(`[DEV] 2FA Code for ${email}: ${code}`);
+    // Send 2FA code via email
+    await this.emailService.sendTwoFactorCode(email, code);
+    this.logger.log(`2FA code sent to ${email}`);
 
     return { requiresTwoFactor: true, tempToken };
   }
@@ -414,6 +415,179 @@ export class AuthService {
       firstName: user.firstName,
       lastName: user.lastName,
       roles: ['customer'],
+    });
+  }
+
+  // ============================================================
+  // FORGOT PASSWORD
+  // ============================================================
+  async forgotPassword(email: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { email: email.toLowerCase(), deletedAt: null },
+      select: { id: true, email: true },
+    });
+
+    // Always succeed silently to prevent email enumeration
+    if (!user) return;
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    // Store reset token (reuse TwoFactorCode table with a special prefix)
+    await this.prisma.twoFactorCode.create({
+      data: {
+        userId: user.id,
+        code: tokenHash,
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
+      },
+    });
+
+    await this.emailService.sendPasswordReset(user.email, token);
+    this.logger.log(`Password reset email sent to ${user.email}`);
+  }
+
+  // ============================================================
+  // RESET PASSWORD
+  // ============================================================
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    const resetCode = await this.prisma.twoFactorCode.findFirst({
+      where: {
+        code: tokenHash,
+        usedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!resetCode) {
+      throw new BadRequestException('Token inválido o expirado');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: resetCode.userId },
+        data: { passwordHash },
+      }),
+      this.prisma.twoFactorCode.update({
+        where: { id: resetCode.id },
+        data: { usedAt: new Date() },
+      }),
+    ]);
+
+    // Revoke all refresh tokens for security
+    await this.prisma.refreshToken.updateMany({
+      where: { userId: resetCode.userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
+
+  // ============================================================
+  // VERIFY EMAIL
+  // ============================================================
+  async verifyEmail(token: string): Promise<void> {
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    const verifyCode = await this.prisma.twoFactorCode.findFirst({
+      where: {
+        code: tokenHash,
+        usedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+    });
+
+    if (!verifyCode) {
+      throw new BadRequestException('Token de verificación inválido o expirado');
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: verifyCode.userId },
+        data: { isVerified: true, emailVerifiedAt: new Date() },
+      }),
+      this.prisma.twoFactorCode.update({
+        where: { id: verifyCode.id },
+        data: { usedAt: new Date() },
+      }),
+    ]);
+  }
+
+  // ============================================================
+  // GOOGLE OAuth
+  // ============================================================
+  async googleLogin(googleUser: {
+    googleId: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    avatarUrl?: string;
+  }): Promise<TokenResponse & { refreshToken: string }> {
+    let user = await this.prisma.user.findUnique({
+      where: { googleId: googleUser.googleId },
+      include: { userRoles: { include: { role: true } } },
+    });
+
+    if (!user) {
+      // Try to find by email
+      user = await this.prisma.user.findUnique({
+        where: { email: googleUser.email.toLowerCase() },
+        include: { userRoles: { include: { role: true } } },
+      });
+
+      if (user) {
+        // Link Google account to existing user
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            googleId: googleUser.googleId,
+            avatarUrl: user.avatarUrl || googleUser.avatarUrl,
+            isVerified: true,
+            emailVerifiedAt: user.emailVerifiedAt || new Date(),
+          },
+          include: { userRoles: { include: { role: true } } },
+        });
+      } else {
+        // Create new user
+        const customerRole = await this.prisma.role.findUnique({
+          where: { name: 'customer' },
+        });
+
+        user = await this.prisma.user.create({
+          data: {
+            email: googleUser.email.toLowerCase(),
+            firstName: googleUser.firstName,
+            lastName: googleUser.lastName,
+            googleId: googleUser.googleId,
+            avatarUrl: googleUser.avatarUrl,
+            isVerified: true,
+            emailVerifiedAt: new Date(),
+            userRoles: customerRole ? { create: { roleId: customerRole.id } } : undefined,
+          },
+          include: { userRoles: { include: { role: true } } },
+        });
+      }
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException('Cuenta desactivada');
+    }
+
+    const roles = user.userRoles.map((ur) => ur.role.name);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+
+    return this.generateTokens(user.id, user.email, roles, {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      roles,
     });
   }
 

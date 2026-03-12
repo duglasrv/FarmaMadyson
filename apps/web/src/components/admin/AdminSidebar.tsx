@@ -18,6 +18,7 @@ import {
   Settings,
   ChevronDown,
   LogOut,
+  Star,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -49,13 +50,16 @@ const menuConfig: MenuItem[] = [
   { label: 'Proveedores', href: '/admin/proveedores', icon: Truck, permission: 'supplier:read' },
   { label: 'Órdenes de Compra', href: '/admin/compras', icon: ClipboardList, permission: 'purchase_order:read' },
   { label: 'Promociones', href: '/admin/promociones', icon: Percent, permission: 'promotion:read' },
+  { label: 'Reseñas', href: '/admin/resenas', icon: Star, permission: 'review:read' },
   { label: 'Reportes', href: '/admin/reportes', icon: BarChart3, permission: 'report:view_sales' },
   {
     label: 'Configuración', href: '/admin/configuracion', icon: Settings, permission: 'settings:read',
     children: [
       { label: 'General', href: '/admin/configuracion', permission: 'settings:update_general' },
+      { label: 'Banners', href: '/admin/banners', permission: 'banner:read' },
       { label: 'Roles y Permisos', href: '/admin/configuracion/roles', permission: 'settings:manage_roles' },
       { label: 'Páginas', href: '/admin/configuracion/paginas', permission: 'settings:manage_pages' },
+      { label: 'Audit Log', href: '/admin/configuracion/audit-log', permission: 'settings:manage_settings' },
     ],
   },
 ];

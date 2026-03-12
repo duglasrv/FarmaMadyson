@@ -1,18 +1,47 @@
 import {
   Controller,
   Get,
+  Post,
   Patch,
   Param,
   Body,
   Query,
   Req,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { PrescriptionsService } from './prescriptions.service';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { StorageService } from '../storage/storage.service';
 
 @Controller('prescriptions')
 export class PrescriptionsController {
-  constructor(private readonly prescriptionsService: PrescriptionsService) {}
+  constructor(
+    private readonly prescriptionsService: PrescriptionsService,
+    private readonly storageService: StorageService,
+  ) {}
+
+  /** Customer uploads a prescription (logged-in) */
+  @Post('upload')
+  @UseInterceptors(FileInterceptor('file'))
+  async upload(
+    @CurrentUser('id') userId: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Body('patientName') patientName?: string,
+    @Body('patientPhone') patientPhone?: string,
+    @Body('notes') notes?: string,
+  ) {
+    const { url } = await this.storageService.upload(file, 'prescriptions');
+    return this.prescriptionsService.create({
+      userId,
+      imageUrl: url,
+      patientName,
+      patientPhone,
+      notes,
+    });
+  }
 
   @Get()
   @RequirePermission('prescription', 'view_all')

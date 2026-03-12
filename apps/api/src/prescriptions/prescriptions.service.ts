@@ -9,6 +9,27 @@ import { PrismaService } from '../prisma/prisma.service';
 export class PrescriptionsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async create(data: {
+    userId: string;
+    imageUrl: string;
+    patientName?: string;
+    patientPhone?: string;
+    notes?: string;
+    orderId?: string;
+  }) {
+    return this.prisma.prescription.create({
+      data: {
+        userId: data.userId,
+        imageUrl: data.imageUrl,
+        patientName: data.patientName || undefined,
+        patientPhone: data.patientPhone || undefined,
+        notes: data.notes || undefined,
+        orderId: data.orderId || undefined,
+        status: 'PENDING',
+      },
+    });
+  }
+
   async findAll(query: { status?: string }) {
     const where: Record<string, unknown> = {};
     if (query.status) where.status = query.status;

@@ -1,13 +1,18 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { FileText, Upload, Camera, CheckCircle, ShieldCheck, Clock, Phone } from 'lucide-react';
+import { FileText, Upload, Camera, CheckCircle, ShieldCheck, Clock, Phone, Loader2 } from 'lucide-react';
+import { apiClient } from '@/lib/api-client';
 
 export default function SubirRecetaPage() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [patientName, setPatientName] = useState('');
+  const [patientPhone, setPatientPhone] = useState('');
   const [notes, setNotes] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = (f: File) => {
@@ -27,10 +32,32 @@ export default function SubirRecetaPage() {
     if (f) handleFile(f);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: integrate with prescription upload API
-    setSubmitted(true);
+    if (!file) return;
+
+    setSubmitting(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      if (patientName.trim()) formData.append('patientName', patientName.trim());
+      if (patientPhone.trim()) formData.append('patientPhone', patientPhone.trim());
+      if (notes.trim()) formData.append('notes', notes.trim());
+
+      await apiClient.post('/prescriptions/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setSubmitted(true);
+    } catch (err: any) {
+      setError(
+        err.response?.status === 401
+          ? 'Debes iniciar sesión para subir una receta.'
+          : err.response?.data?.message || 'Error al enviar la receta. Intenta de nuevo.',
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (submitted) {
@@ -142,6 +169,34 @@ export default function SubirRecetaPage() {
           )}
         </div>
 
+        {/* Patient info */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-semibold text-charcoal mb-2">
+              Nombre del paciente
+            </label>
+            <input
+              type="text"
+              value={patientName}
+              onChange={(e) => setPatientName(e.target.value)}
+              placeholder="Nombre completo del paciente"
+              className="w-full border border-mist rounded-xl px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-300 transition-all placeholder:text-silver"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-charcoal mb-2">
+              Teléfono de contacto
+            </label>
+            <input
+              type="tel"
+              value={patientPhone}
+              onChange={(e) => setPatientPhone(e.target.value)}
+              placeholder="Ej: 5555-1234"
+              className="w-full border border-mist rounded-xl px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-300 transition-all placeholder:text-silver"
+            />
+          </div>
+        </div>
+
         {/* Notes */}
         <div>
           <label className="block text-sm font-semibold text-charcoal mb-2">
@@ -156,15 +211,22 @@ export default function SubirRecetaPage() {
           />
         </div>
 
+        {error && (
+          <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-center">
+            {error}
+          </p>
+        )}
+
         {/* Submit */}
         <button
           type="submit"
-          disabled={!file}
+          disabled={!file || submitting}
           className="w-full py-3.5 bg-teal-600 text-white rounded-xl font-semibold text-base
                      hover:bg-teal-700 disabled:opacity-40 disabled:cursor-not-allowed
-                     transition-all duration-200 shadow-brand-sm hover:shadow-brand-md"
+                     transition-all duration-200 shadow-brand-sm hover:shadow-brand-md flex items-center justify-center gap-2"
         >
-          Enviar mi receta
+          {submitting && <Loader2 className="w-5 h-5 animate-spin" />}
+          {submitting ? 'Enviando...' : 'Enviar mi receta'}
         </button>
 
         <p className="text-xs text-silver text-center">

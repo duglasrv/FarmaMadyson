@@ -421,9 +421,17 @@ export class OrdersService {
   // ADMIN
   // ============================================================
 
-  async findAll(page = 1, limit = 20, status?: string): Promise<any> {
+  async findAll(page = 1, limit = 20, status?: string, search?: string): Promise<any> {
     const where: any = {};
     if (status) where.status = status;
+    if (search) {
+      where.OR = [
+        { orderNumber: { contains: search, mode: 'insensitive' } },
+        { user: { firstName: { contains: search, mode: 'insensitive' } } },
+        { user: { lastName: { contains: search, mode: 'insensitive' } } },
+        { user: { email: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
 
     const skip = (page - 1) * limit;
     const [orders, total] = await Promise.all([
@@ -441,7 +449,7 @@ export class OrdersService {
       this.prisma.order.count({ where }),
     ]);
 
-    return { orders, total, page, totalPages: Math.ceil(total / limit) };
+    return { data: orders, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
   }
 
   async findOne(orderId: string): Promise<any> {

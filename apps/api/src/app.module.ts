@@ -25,6 +25,13 @@ import { PrescriptionsModule } from './prescriptions/prescriptions.module';
 import { ReportsModule } from './reports/reports.module';
 import { PagesModule } from './pages/pages.module';
 import { AlertsModule } from './alerts/alerts.module';
+import { UsersModule } from './users/users.module';
+import { SettingsModule } from './settings/settings.module';
+import { BannersModule } from './banners/banners.module';
+import { AuditLogsModule } from './audit-logs/audit-logs.module';
+import { EmailModule } from './email/email.module';
+import { ReviewsModule } from './reviews/reviews.module';
+import { StorageModule } from './storage/storage.module';
 import { AuditLogInterceptor } from './common/audit-log.interceptor';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { CaslAbilityGuard } from './casl/casl-ability.guard';
@@ -57,6 +64,13 @@ import { CaslAbilityGuard } from './casl/casl-ability.guard';
     ReportsModule,
     PagesModule,
     AlertsModule,
+    UsersModule,
+    SettingsModule,
+    BannersModule,
+    AuditLogsModule,
+    EmailModule,
+    ReviewsModule,
+    StorageModule,
     HealthModule,
   ],
   providers: [

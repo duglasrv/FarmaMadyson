@@ -22,6 +22,8 @@ interface Prescription {
   imageUrl: string;
   status: string;
   notes: string | null;
+  patientName: string | null;
+  patientPhone: string | null;
   rejectionReason: string | null;
   createdAt: string;
   reviewedAt: string | null;
@@ -141,8 +143,21 @@ export default function AdminPrescriptionsPage() {
                   {rx.user.firstName} {rx.user.lastName}
                 </p>
                 <p className="text-xs text-muted-foreground">{rx.user.email}</p>
+                {rx.patientName && (
+                  <p className="text-xs text-foreground">
+                    <span className="text-muted-foreground">Paciente:</span> {rx.patientName}
+                  </p>
+                )}
+                {rx.patientPhone && (
+                  <p className="text-xs text-foreground">
+                    <span className="text-muted-foreground">Tel:</span> {rx.patientPhone}
+                  </p>
+                )}
                 {rx.order && (
                   <p className="text-xs text-primary">Orden: {rx.order.orderNumber}</p>
+                )}
+                {rx.notes && (
+                  <p className="text-xs text-muted-foreground italic">&quot;{rx.notes}&quot;</p>
                 )}
                 <p className="text-[10px] text-muted-foreground">
                   {new Date(rx.createdAt).toLocaleString('es-GT')}
@@ -215,14 +230,29 @@ export default function AdminPrescriptionsPage() {
               {/* Patient Info */}
               <div className="text-sm space-y-1">
                 <p>
-                  <strong>Paciente:</strong> {selected.user.firstName} {selected.user.lastName}
+                  <strong>Cliente:</strong> {selected.user.firstName} {selected.user.lastName}
                 </p>
                 <p>
                   <strong>Email:</strong> {selected.user.email}
                 </p>
+                {selected.patientName && (
+                  <p>
+                    <strong>Paciente:</strong> {selected.patientName}
+                  </p>
+                )}
+                {selected.patientPhone && (
+                  <p>
+                    <strong>Teléfono:</strong> {selected.patientPhone}
+                  </p>
+                )}
                 {selected.order && (
                   <p>
                     <strong>Orden:</strong> {selected.order.orderNumber}
+                  </p>
+                )}
+                {selected.notes && (
+                  <p>
+                    <strong>Notas del cliente:</strong> {selected.notes}
                   </p>
                 )}
               </div>
