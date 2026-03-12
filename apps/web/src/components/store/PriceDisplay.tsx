@@ -22,11 +22,11 @@ export default function PriceDisplay({
 
   return (
     <div className="flex items-baseline gap-1.5 flex-wrap">
-      <span className={`${cls.current} text-primary`}>
+      <span className={`${cls.current} text-purple-600`}>
         {formatPrice(price)}
       </span>
       {hasDiscount && (
-        <span className={`${cls.old} text-muted-foreground line-through`}>
+        <span className={`${cls.old} text-silver line-through`}>
           {formatPrice(compareAtPrice)}
         </span>
       )}

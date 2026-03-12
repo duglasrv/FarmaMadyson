@@ -40,12 +40,12 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
   const variantLabel = variant.presentation ?? variant.name ?? '';
 
   return (
-    <div className="group bg-white rounded-xl border border-border overflow-hidden hover:shadow-lg transition-all duration-300">
-      <Link href={`/productos/${product.slug}`} className="block relative aspect-square overflow-hidden bg-muted/20">
+    <div className="group bg-white rounded-2xl border border-mist overflow-hidden shadow-brand-sm hover:shadow-brand-lg hover:-translate-y-0.5 transition-all duration-300">
+      <Link href={`/productos/${product.slug}`} className="block relative aspect-square overflow-hidden bg-snow">
         <img
           src={image}
           alt={product.name}
-          className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-300"
+          className="w-full h-full object-contain p-4 group-hover:scale-103 transition-transform duration-300"
           onError={(e) => {
             (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27300%27 height=%27300%27 fill=%27%23f3f4f6%27%3E%3Crect width=%27300%27 height=%27300%27/%3E%3Ctext x=%2750%25%27 y=%2750%25%27 dominant-baseline=%27middle%27 text-anchor=%27middle%27 font-family=%27sans-serif%27 font-size=%2714%27 fill=%27%239ca3af%27%3ESin imagen%3C/text%3E%3C/svg%3E';
           }}
@@ -56,7 +56,7 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
           </div>
         )}
         {compareAt && compareAt > price && (
-          <div className="absolute top-2 right-2 bg-destructive text-white text-xs font-bold px-2 py-1 rounded-full">
+          <div className="absolute top-2 right-2 bg-amber-500 text-white text-xs font-bold px-2.5 py-1 rounded-full">
             -{Math.round(((compareAt - price) / compareAt) * 100)}%
           </div>
         )}
@@ -64,17 +64,17 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
 
       <div className="p-4 space-y-2">
         {product.brand && (
-          <span className="text-xs text-muted-foreground uppercase tracking-wide">
+          <span className="text-xs text-silver uppercase tracking-wider font-medium">
             {product.brand.name}
           </span>
         )}
         <Link href={`/productos/${product.slug}`}>
-          <h3 className="text-sm font-medium text-foreground line-clamp-2 hover:text-primary transition-colors">
+          <h3 className="text-sm font-semibold text-ink line-clamp-2 hover:text-purple-600 transition-colors">
             {product.name}
           </h3>
         </Link>
         {variantLabel && (
-          <p className="text-xs text-muted-foreground">{variantLabel}</p>
+          <p className="text-xs text-silver">{variantLabel}</p>
         )}
 
         <div className="flex items-center justify-between pt-1">
@@ -85,7 +85,7 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
         <button
           onClick={() => inStock && onAddToCart?.(variant.id)}
           disabled={!inStock}
-          className="w-full mt-2 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-primary text-white hover:bg-primary-dark active:scale-[0.98]"
+          className="w-full mt-2 flex items-center justify-center gap-2 py-2.5 px-4 rounded-full text-sm font-semibold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed bg-amber-500 text-white hover:bg-amber-600 hover:shadow-amber-glow active:scale-[0.97]"
         >
           <ShoppingCart className="w-4 h-4" />
           {inStock ? 'Agregar al Carrito' : 'Agotado'}
