@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback, createContext, useContext, type ReactNode } from 'react';
+import { useQueryClient, QueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
+import { useCartStore } from '@/stores/cart-store';
 
 const ADMIN_ROLES = ['super_admin', 'admin', 'pharmacist', 'warehouse', 'sales'];
 
@@ -11,7 +13,7 @@ function setSessionCookie(roles: string[]) {
 }
 
 function clearSessionCookie() {
-  document.cookie = 'session_type=;path=/;max-age=0';
+  document.cookie = 'session_type=;path=/;max-age=0;SameSite=Lax';
 }
 
 interface User {
@@ -43,6 +45,8 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const clearCartStore = useCartStore((s) => s.clearCart);
 
   const refreshUser = useCallback(async () => {
     try {
@@ -128,8 +132,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     localStorage.removeItem('accessToken');
     clearSessionCookie();
+    clearCartStore();
+    queryClient.clear();
     setUser(null);
-  }, []);
+  }, [clearCartStore, queryClient]);
 
   return (
     <AuthContext.Provider

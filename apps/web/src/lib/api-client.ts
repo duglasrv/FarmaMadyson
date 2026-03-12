@@ -36,12 +36,19 @@ const processQueue = (error: unknown, token: string | null) => {
   failedQueue = [];
 };
 
+// Auth endpoints that should never trigger the auto-refresh flow
+const AUTH_ENDPOINTS = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/check-email', '/auth/quick-register'];
+
 apiClient.interceptors.response.use(
   (res) => res,
   async (error) => {
     const originalRequest = error.config;
+    const requestUrl = originalRequest?.url || '';
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Skip auto-refresh for auth endpoints — a 401 here means bad credentials, not expired token
+    const isAuthEndpoint = AUTH_ENDPOINTS.some((ep) => requestUrl.includes(ep));
+
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({
@@ -67,9 +74,7 @@ apiClient.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError, null);
         localStorage.removeItem('accessToken');
-        if (typeof window !== 'undefined') {
-          window.location.href = '/login';
-        }
+        // Don't force redirect — let AuthProvider and pages handle the unauthenticated state
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

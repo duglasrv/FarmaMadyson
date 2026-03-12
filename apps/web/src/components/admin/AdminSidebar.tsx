@@ -181,8 +181,8 @@ export default function AdminSidebar() {
           </div>
         </div>
         <button
-          onClick={() => {
-            logout();
+          onClick={async () => {
+            await logout();
             window.location.href = '/login';
           }}
           className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-muted-foreground hover:text-destructive rounded-md hover:bg-muted transition-colors"
