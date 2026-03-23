@@ -19,6 +19,8 @@ import {
   ChevronDown,
   LogOut,
   Star,
+  ShoppingCart,
+  Receipt,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -33,6 +35,8 @@ interface MenuItem {
 
 const menuConfig: MenuItem[] = [
   { label: 'Dashboard', href: '/admin', icon: LayoutDashboard, permission: 'report:view_sales' },
+  { label: 'Punto de Venta', href: '/admin/pos', icon: ShoppingCart, permission: 'pos:sell' },
+  { label: 'Ventas Locales', href: '/admin/ventas-pos', icon: Receipt, permission: 'pos:view_sales' },
   { label: 'Productos', href: '/admin/productos', icon: Package, permission: 'product:read' },
   { label: 'Categorías', href: '/admin/categorias', icon: FolderTree, permission: 'category:read' },
   {

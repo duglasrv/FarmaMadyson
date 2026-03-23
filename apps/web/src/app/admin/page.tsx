@@ -7,6 +7,8 @@ import {
   AlertTriangle,
   Clock,
   TrendingUp,
+  Store,
+  Globe,
 } from 'lucide-react';
 import {
   BarChart,
@@ -67,7 +69,7 @@ export default function AdminDashboardPage() {
     );
   }
 
-  const { kpis, salesChart, topProducts, ordersByStatus, recentOrders, recentAlerts } =
+  const { kpis, salesChart, topProducts, ordersByStatus, recentOrders, recentPosSales, recentAlerts } =
     data || {};
 
   return (
@@ -80,11 +82,25 @@ export default function AdminDashboardPage() {
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
-          title="Ventas del Día"
+          title="Ventas del Día (Total)"
           value={formatPrice(kpis?.salesToday?.amount || 0)}
-          subtitle={`${kpis?.salesToday?.count || 0} pedidos`}
+          subtitle={`${kpis?.salesToday?.count || 0} ventas`}
           icon={DollarSign}
           color="text-green-600 bg-green-50"
+        />
+        <KpiCard
+          title="Ventas Local (POS)"
+          value={formatPrice(kpis?.posSalesToday?.amount || 0)}
+          subtitle={`${kpis?.posSalesToday?.count || 0} ventas en tienda`}
+          icon={Store}
+          color="text-teal-600 bg-teal-50"
+        />
+        <KpiCard
+          title="Ventas Online"
+          value={formatPrice(kpis?.onlineSalesToday?.amount || 0)}
+          subtitle={`${kpis?.onlineSalesToday?.count || 0} pedidos`}
+          icon={Globe}
+          color="text-blue-600 bg-blue-50"
         />
         <KpiCard
           title="Pedidos Pendientes"
@@ -93,6 +109,10 @@ export default function AdminDashboardPage() {
           icon={ShoppingBag}
           color="text-amber-600 bg-amber-50"
         />
+      </div>
+
+      {/* Secondary KPIs */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <KpiCard
           title="Stock Bajo"
           value={kpis?.lowStockCount || 0}
@@ -128,7 +148,10 @@ export default function AdminDashboardPage() {
                 />
                 <YAxis fontSize={12} tickFormatter={(v: number) => `Q${v}`} />
                 <Tooltip
-                  formatter={(value) => [formatPrice(Number(value)), 'Ventas']}
+                  formatter={(value, name) => [
+                    formatPrice(Number(value)),
+                    name === 'pos' ? 'Local (POS)' : name === 'online' ? 'Online' : 'Total',
+                  ]}
                   labelFormatter={(label) => {
                     const d = new Date(label + 'T12:00:00');
                     return d.toLocaleDateString('es-GT', {
@@ -138,9 +161,14 @@ export default function AdminDashboardPage() {
                     });
                   }}
                 />
-                <Bar dataKey="total" fill="#1B7B8A" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="pos" stackId="sales" fill="#14B8A6" name="pos" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="online" stackId="sales" fill="#1B7B8A" name="online" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
+          </div>
+          <div className="flex items-center justify-center gap-6 mt-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded" style={{ backgroundColor: '#14B8A6' }} />Local (POS)</div>
+            <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded" style={{ backgroundColor: '#1B7B8A' }} />Online</div>
           </div>
         </div>
 
@@ -237,10 +265,12 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Bottom Tables */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Orders */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Recent Online Orders */}
         <div className="bg-white rounded-xl border border-border p-5">
-          <h3 className="text-sm font-semibold text-foreground mb-4">Últimos Pedidos</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+            <Globe className="w-4 h-4 text-blue-600" /> Últimos Pedidos Online
+          </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -284,6 +314,55 @@ export default function AdminDashboardPage() {
                   <tr>
                     <td colSpan={4} className="py-4 text-center text-muted-foreground">
                       Sin pedidos recientes
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Recent POS Sales */}
+        <div className="bg-white rounded-xl border border-border p-5">
+          <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+            <Store className="w-4 h-4 text-teal-600" /> Últimas Ventas Locales
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-muted-foreground border-b border-border">
+                  <th className="pb-2 font-medium"># Venta</th>
+                  <th className="pb-2 font-medium">Cliente</th>
+                  <th className="pb-2 font-medium">Total</th>
+                  <th className="pb-2 font-medium">Pago</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {recentPosSales?.map(
+                  (sale: {
+                    id: string;
+                    saleNumber: string;
+                    total: number;
+                    paymentMethod: string;
+                    clientName: string;
+                    seller: { firstName: string; lastName: string };
+                  }) => (
+                    <tr key={sale.id}>
+                      <td className="py-2 font-medium text-teal-600">{sale.saleNumber}</td>
+                      <td className="py-2 text-muted-foreground">{sale.clientName}</td>
+                      <td className="py-2">{formatPrice(Number(sale.total))}</td>
+                      <td className="py-2">
+                        <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-teal-50 text-teal-700">
+                          {sale.paymentMethod === 'CASH' ? 'Efectivo' : sale.paymentMethod === 'CARD' ? 'Tarjeta' : 'Transfer.'}
+                        </span>
+                      </td>
+                    </tr>
+                  ),
+                )}
+                {(!recentPosSales || recentPosSales.length === 0) && (
+                  <tr>
+                    <td colSpan={4} className="py-4 text-center text-muted-foreground">
+                      Sin ventas locales recientes
                     </td>
                   </tr>
                 )}

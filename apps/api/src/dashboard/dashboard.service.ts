@@ -10,9 +10,9 @@ export class DashboardService {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
-    const [salesToday, pendingOrders, lowStockCount, expiringSoonCount] =
+    const [onlineSalesToday, posSalesToday, pendingOrders, lowStockCount, expiringSoonCount] =
       await Promise.all([
-        // Sales today
+        // Online sales today
         this.prisma.order.aggregate({
           where: {
             createdAt: { gte: todayStart },
@@ -21,6 +21,12 @@ export class DashboardService {
             },
           },
           _sum: { totalAmount: true },
+          _count: true,
+        }),
+        // POS sales today
+        this.prisma.posSale.aggregate({
+          where: { createdAt: { gte: todayStart } },
+          _sum: { total: true },
           _count: true,
         }),
         // Pending orders
@@ -50,10 +56,21 @@ export class DashboardService {
         }),
       ]);
 
+    const onlineAmount = Number(onlineSalesToday._sum.totalAmount || 0);
+    const posAmount = Number(posSalesToday._sum.total || 0);
+
     return {
       salesToday: {
-        amount: Number(salesToday._sum.totalAmount || 0),
-        count: salesToday._count,
+        amount: onlineAmount + posAmount,
+        count: onlineSalesToday._count + posSalesToday._count,
+      },
+      onlineSalesToday: {
+        amount: onlineAmount,
+        count: onlineSalesToday._count,
+      },
+      posSalesToday: {
+        amount: posAmount,
+        count: posSalesToday._count,
       },
       pendingOrders,
       lowStockCount,
@@ -63,7 +80,7 @@ export class DashboardService {
 
   async getSalesChart() {
     const days = 7;
-    const results: { date: string; total: number }[] = [];
+    const results: { date: string; online: number; pos: number; total: number }[] = [];
 
     for (let i = days - 1; i >= 0; i--) {
       const start = new Date();
@@ -73,47 +90,88 @@ export class DashboardService {
       const end = new Date(start);
       end.setHours(23, 59, 59, 999);
 
-      const agg = await this.prisma.order.aggregate({
-        where: {
-          createdAt: { gte: start, lte: end },
-          status: {
-            notIn: [OrderStatus.CANCELLED, OrderStatus.REFUNDED],
+      const [onlineAgg, posAgg] = await Promise.all([
+        this.prisma.order.aggregate({
+          where: {
+            createdAt: { gte: start, lte: end },
+            status: {
+              notIn: [OrderStatus.CANCELLED, OrderStatus.REFUNDED],
+            },
           },
-        },
-        _sum: { totalAmount: true },
-      });
+          _sum: { totalAmount: true },
+        }),
+        this.prisma.posSale.aggregate({
+          where: { createdAt: { gte: start, lte: end } },
+          _sum: { total: true },
+        }),
+      ]);
+
+      const online = Number(onlineAgg._sum.totalAmount || 0);
+      const pos = Number(posAgg._sum.total || 0);
 
       results.push({
         date: start.toISOString().slice(0, 10),
-        total: Number(agg._sum.totalAmount || 0),
+        online,
+        pos,
+        total: online + pos,
       });
     }
     return results;
   }
 
   async getTopProducts() {
-    const items = await this.prisma.orderItem.groupBy({
-      by: ['variantId'],
-      _sum: { quantity: true, totalPrice: true },
-      orderBy: { _sum: { quantity: 'desc' } },
-      take: 10,
-    });
+    // Combine online order items + POS sale items
+    const [orderItems, posItems] = await Promise.all([
+      this.prisma.orderItem.groupBy({
+        by: ['variantId'],
+        _sum: { quantity: true, totalPrice: true },
+        orderBy: { _sum: { quantity: 'desc' } },
+        take: 20,
+      }),
+      this.prisma.posSaleItem.groupBy({
+        by: ['variantId'],
+        _sum: { quantity: true, subtotal: true },
+        orderBy: { _sum: { quantity: 'desc' } },
+        take: 20,
+      }),
+    ]);
 
-    const variantIds = items.map((i) => i.variantId);
+    // Merge quantities by variantId
+    const merged = new Map<string, { quantity: number; revenue: number }>();
+    for (const item of orderItems) {
+      merged.set(item.variantId, {
+        quantity: item._sum.quantity || 0,
+        revenue: Number(item._sum.totalPrice || 0),
+      });
+    }
+    for (const item of posItems) {
+      const existing = merged.get(item.variantId) || { quantity: 0, revenue: 0 };
+      merged.set(item.variantId, {
+        quantity: existing.quantity + (item._sum.quantity || 0),
+        revenue: existing.revenue + Number(item._sum.subtotal || 0),
+      });
+    }
+
+    // Sort by quantity and take top 10
+    const sorted = [...merged.entries()]
+      .sort((a, b) => b[1].quantity - a[1].quantity)
+      .slice(0, 10);
+
+    const variantIds = sorted.map(([id]) => id);
     const variants = await this.prisma.productVariant.findMany({
       where: { id: { in: variantIds } },
       include: { product: { select: { name: true } } },
     });
     const variantMap = new Map(variants.map((v) => [v.id, v]));
 
-    return items.map((item) => {
-      const v = variantMap.get(item.variantId);
+    return sorted.map(([variantId, data]) => {
+      const v = variantMap.get(variantId);
       return {
-        variantId: item.variantId,
+        variantId,
         productName: v?.product?.name || 'Desconocido',
         variantName: v?.name || '',
-        quantity: item._sum.quantity || 0,
-        revenue: Number(item._sum.totalPrice || 0),
+        quantity: data.quantity,
+        revenue: data.revenue,
       };
     });
   }
@@ -140,6 +198,24 @@ export class DashboardService {
         status: true,
         createdAt: true,
         user: {
+          select: { firstName: true, lastName: true },
+        },
+      },
+    });
+  }
+
+  async getRecentPosSales() {
+    return this.prisma.posSale.findMany({
+      take: 5,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        saleNumber: true,
+        total: true,
+        paymentMethod: true,
+        clientName: true,
+        createdAt: true,
+        seller: {
           select: { firstName: true, lastName: true },
         },
       },
@@ -173,13 +249,14 @@ export class DashboardService {
   }
 
   async getFullDashboard() {
-    const [kpis, salesChart, topProducts, ordersByStatus, recentOrders, recentAlerts] =
+    const [kpis, salesChart, topProducts, ordersByStatus, recentOrders, recentPosSales, recentAlerts] =
       await Promise.all([
         this.getKpis(),
         this.getSalesChart(),
         this.getTopProducts(),
         this.getOrdersByStatus(),
         this.getRecentOrders(),
+        this.getRecentPosSales(),
         this.getRecentAlerts(),
       ]);
 
@@ -189,6 +266,7 @@ export class DashboardService {
       topProducts,
       ordersByStatus,
       recentOrders,
+      recentPosSales,
       recentAlerts,
     };
   }

@@ -32,6 +32,7 @@ import { AuditLogsModule } from './audit-logs/audit-logs.module';
 import { EmailModule } from './email/email.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { StorageModule } from './storage/storage.module';
+import { PosModule } from './pos/pos.module';
 import { AuditLogInterceptor } from './common/audit-log.interceptor';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { CaslAbilityGuard } from './casl/casl-ability.guard';
@@ -71,6 +72,7 @@ import { CaslAbilityGuard } from './casl/casl-ability.guard';
     EmailModule,
     ReviewsModule,
     StorageModule,
+    PosModule,
     HealthModule,
   ],
   providers: [

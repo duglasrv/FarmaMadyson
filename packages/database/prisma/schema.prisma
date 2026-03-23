@@ -41,6 +41,7 @@ model User {
   refreshTokens     RefreshToken[]
   twoFactorCodes    TwoFactorCode[]
   auditLogs         AuditLog[]       @relation("AuditUser")
+  posSales          PosSale[]        @relation("PosSeller")
 
   @@index([email])
   @@index([googleId])
@@ -257,6 +258,7 @@ model ProductVariant {
   batches         ProductBatch[]
   cartItems       CartItem[]
   orderItems      OrderItem[]
+  posSaleItems    PosSaleItem[]
 
   @@index([productId])
   @@index([sku])
@@ -847,4 +849,74 @@ model NotificationTemplate {
   updatedAt DateTime @updatedAt
 
   @@map("notification_templates")
+}
+
+// ============================================================
+// POINT OF SALE (POS)
+// ============================================================
+
+model PosClient {
+  id        String    @id @default(uuid())
+  nit       String    @unique
+  name      String
+  address   String?
+  phone     String?
+  email     String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  sales     PosSale[]
+
+  @@index([nit])
+  @@map("pos_clients")
+}
+
+model PosSale {
+  id            String           @id @default(uuid())
+  saleNumber    String           @unique
+  clientId      String?
+  clientNit     String           @default("CF")
+  clientName    String           @default("Consumidor Final")
+  subtotal      Decimal          @db.Decimal(10, 2)
+  discount      Decimal          @db.Decimal(10, 2) @default(0)
+  total         Decimal          @db.Decimal(10, 2)
+  paymentMethod PosPaymentMethod @default(CASH)
+  cashReceived  Decimal?         @db.Decimal(10, 2)
+  change        Decimal?         @db.Decimal(10, 2)
+  sellerId      String
+  notes         String?
+
+  createdAt     DateTime         @default(now())
+
+  seller        User             @relation("PosSeller", fields: [sellerId], references: [id])
+  client        PosClient?       @relation(fields: [clientId], references: [id])
+  items         PosSaleItem[]
+
+  @@index([saleNumber])
+  @@index([sellerId])
+  @@index([createdAt])
+  @@map("pos_sales")
+}
+
+model PosSaleItem {
+  id        String  @id @default(uuid())
+  saleId    String
+  variantId String
+  name      String
+  quantity  Int
+  price     Decimal @db.Decimal(10, 2)
+  subtotal  Decimal @db.Decimal(10, 2)
+
+  sale      PosSale        @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  variant   ProductVariant @relation(fields: [variantId], references: [id])
+
+  @@index([saleId])
+  @@map("pos_sale_items")
+}
+
+enum PosPaymentMethod {
+  CASH
+  CARD
+  TRANSFER
 }

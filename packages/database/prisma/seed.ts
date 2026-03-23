@@ -118,6 +118,10 @@ async function main() {
     { resource: 'purchase_order', action: 'read', description: 'Ver órdenes de compra' },
     { resource: 'purchase_order', action: 'update', description: 'Actualizar órdenes de compra' },
     { resource: 'purchase_order', action: 'receive', description: 'Recibir órdenes de compra' },
+    // POS
+    { resource: 'pos', action: 'sell', description: 'Realizar ventas en POS' },
+    { resource: 'pos', action: 'view_sales', description: 'Ver historial de ventas POS' },
+    { resource: 'pos', action: 'apply_discount', description: 'Aplicar descuentos en POS' },
   ];
 
   const permissions = await Promise.all(
@@ -173,6 +177,7 @@ async function main() {
     'report:view_sales', 'report:view_inventory',
     'supplier:read',
     'purchase_order:read',
+    'pos:sell', 'pos:view_sales',
   ];
   for (const key of pharmacistPerms) {
     await prisma.rolePermission.upsert({
@@ -208,6 +213,7 @@ async function main() {
     'user:read',
     'promotion:read',
     'report:view_sales',
+    'pos:sell', 'pos:view_sales',
   ];
   for (const key of salesPerms) {
     await prisma.rolePermission.upsert({
@@ -235,7 +241,7 @@ async function main() {
   const passwordHash = await bcrypt.hash('FarmaMadyson2026!', 12);
   const superAdmin = await prisma.user.upsert({
     where: { email: 'admin@farmamadyson.com' },
-    update: {},
+    update: { twoFactorEnabled: false },
     create: {
       email: 'admin@farmamadyson.com',
       passwordHash,
@@ -244,7 +250,7 @@ async function main() {
       isActive: true,
       isVerified: true,
       emailVerifiedAt: new Date(),
-      twoFactorEnabled: true,
+      twoFactorEnabled: false,
     },
   });
 
