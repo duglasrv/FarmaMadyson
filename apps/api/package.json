@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "prebuild": "pnpm --filter @farma/database db:generate",
+    "prebuild": "pnpm --filter @farma/database db:generate && pnpm --filter @farma/database build",
     "build": "nest build",
     "dev": "nest start --watch",
     "start": "node dist/main",
