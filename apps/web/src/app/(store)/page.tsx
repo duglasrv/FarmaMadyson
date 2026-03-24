@@ -122,7 +122,7 @@ function useInView() {
     if (!node || visible) return;
     obsRef.current = new IntersectionObserver(
       ([e]) => {
-        if (e.isIntersecting) {
+        if (e?.isIntersecting) {
           setVisible(true);
           obsRef.current?.disconnect();
         }
