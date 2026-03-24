@@ -36,3 +36,6 @@ docker/data/
 
 # Coverage
 coverage/
+
+# Sensitive files
+sd.md
