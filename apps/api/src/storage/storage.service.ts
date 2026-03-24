@@ -28,10 +28,11 @@ export class StorageService {
     this.bucket = this.config.get<string>('SUPABASE_BUCKET', 'farma-madyson');
     this.publicUrl = `${url}/storage/v1/object/public/${this.bucket}`;
 
-    this.supabase = createClient(url, key);
-
-    if (!url || !key) {
+    if (url && key) {
+      this.supabase = createClient(url, key);
+    } else {
       this.logger.warn('Supabase not configured — uploads will fail');
+      this.supabase = null as unknown as SupabaseClient;
     }
   }
 
