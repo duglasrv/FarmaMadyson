@@ -554,17 +554,17 @@ export default function HomePage() {
             <div className="bg-white rounded-2xl p-6 border border-mist shadow-brand-sm">
               <Quote className="w-8 h-8 text-purple-200 mb-3" />
               <p className="text-sm text-charcoal leading-relaxed">
-                {testimonials[testimonialIndex].text}
+                {testimonials[testimonialIndex]?.text}
               </p>
               <div className="mt-4 flex items-center justify-between">
                 <div>
                   <p className="font-semibold text-sm text-ink">
-                    {testimonials[testimonialIndex].name}
+                    {testimonials[testimonialIndex]?.name}
                   </p>
                   <p className="text-xs text-silver">Cliente verificado</p>
                 </div>
                 <div className="flex gap-0.5">
-                  {Array.from({ length: testimonials[testimonialIndex].rating }).map((_, j) => (
+                  {Array.from({ length: testimonials[testimonialIndex]?.rating ?? 0 }).map((_, j) => (
                     <Star key={j} className="w-4 h-4 fill-amber-400 text-amber-400" />
                   ))}
                 </div>
